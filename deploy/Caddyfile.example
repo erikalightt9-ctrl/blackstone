@@ -1,0 +1,30 @@
+# HTTPS on the office network for Financial Monitoring.
+#
+# Caddy terminates TLS and passes the request to the service, which stays bound to the
+# loopback address and is never exposed directly. `local_certs` issues the certificate from
+# Caddy's own internal authority, which each office machine trusts once (see DEPLOY.md).
+#
+# Run:  caddy run --config deploy\Caddyfile
+
+{
+	local_certs
+	admin off
+}
+
+# Both names answer, so staff can use whichever they have: the computer name or its address.
+# Every name listed here must also appear in FR_ORIGIN or FR_EXTRA_ORIGINS, or the service
+# will refuse form submissions from it as cross-site.
+https://finance-pc, https://192.168.1.10 {
+	encode zstd gzip
+
+	reverse_proxy 127.0.0.1:3403 {
+		header_up X-Forwarded-For {remote_host}
+	}
+
+	log {
+		output file access.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}

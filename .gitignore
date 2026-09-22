@@ -1,0 +1,34 @@
+# The live database and every backup of it. These hold real financial records, staff
+# accounts and password hashes, and must never leave this machine through a repository.
+data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Dependencies, restored with `npm install`.
+node_modules/
+
+# Generated from the live database, so it carries the company's real bank account numbers.
+# The application produces a fresh one on demand; there is no reason to keep a copy here.
+bank-records-template.xlsx
+*.xlsx
+
+# The PDFs and CSVs the application produces are records, not source.
+*.pdf
+*.csv
+
+# Anything holding real settings for a particular machine. The published deployment files are
+# templates (deploy/*.example.*); the working copies carry this office's own computer name,
+# address and paths, which is nobody else's business.
+.env
+.env.*
+deploy/start-service.cmd
+deploy/Caddyfile
+deploy/*.local.*
+deploy/access.log*
+
+# Operating system and editor leftovers.
+Thumbs.db
+desktop.ini
+.DS_Store
+*.swp
