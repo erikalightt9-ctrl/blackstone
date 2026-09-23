@@ -90,14 +90,22 @@ export function loopbackOrigins(origin, extra = '') {
 // would make the per-client login throttle behave as one shared bucket for the whole office.
 // The forwarded address is used only when the deployment says a proxy is really in front,
 // because a client can otherwise set these headers itself.
+// A forwarded address is only worth anything if the thing that forwarded it is the proxy and
+// not the visitor. Caddy and the Cloudflare tunnel both connect from this machine, so a header
+// is honoured only when the connection itself came from the loopback address. Without that
+// check, anyone who could reach the port directly would set their own address on every request
+// and walk straight through the per-source limits.
+const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+
 export function clientAddress(req, trustProxy = false) {
-  if (trustProxy) {
+  const peer = req.socket.remoteAddress || 'unknown';
+  if (trustProxy && LOOPBACK.has(peer)) {
     const cloudflare = req.headers['cf-connecting-ip'];
-    if (typeof cloudflare === 'string' && cloudflare.trim()) return cloudflare.trim();
+    if (typeof cloudflare === 'string' && cloudflare.trim()) return cloudflare.trim().slice(0, 64);
     const forwarded = req.headers['x-forwarded-for'];
-    if (typeof forwarded === 'string' && forwarded.trim()) return forwarded.split(',')[0].trim();
+    if (typeof forwarded === 'string' && forwarded.trim()) return forwarded.split(',')[0].trim().slice(0, 64);
   }
-  return req.socket.remoteAddress || 'unknown';
+  return peer;
 }
 
 export function createApp({ store, origin, setupToken, logo = null, extraOrigins = '', trustProxy = false }) {

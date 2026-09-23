@@ -19,12 +19,19 @@ const equal = (a, b) => {
 export const shapeUser = row => ({ id: row.id, username: row.username, fullName: row.full_name, email: row.email || '', role: row.role, disabled: !!row.disabled });
 export const RESET_MINUTES = 60;
 
-export function checkLimit(store, key, maximum = 10) {
+const WATCHER = { id: 'system', fullName: 'System', role: 'admin' };
+
+export function checkLimit(store, key, maximum = 10, describe = '') {
   const now = Date.now();
   store.run('DELETE FROM login_limits WHERE until_ms < ?', now);
   const row = store.get('SELECT * FROM login_limits WHERE key = ?', key);
   if (row && row.attempts >= maximum) throw new AppError('Too many attempts. Try again in 15 minutes.', 429);
   store.run('INSERT INTO login_limits VALUES(?, 1, ?) ON CONFLICT(key) DO UPDATE SET attempts = attempts + 1', key, now + 900000);
+  // Logged once, as the limit is reached, rather than on every blocked attempt afterwards -
+  // otherwise an attacker could fill the history by being blocked repeatedly.
+  if (describe && row && row.attempts + 1 === maximum) {
+    store.log(WATCHER, 'rate-limit', 'security', key, { detail: `${describe} reached ${maximum} failed attempts and is blocked for 15 minutes` });
+  }
 }
 
 export async function addUser(store, input, actor = null) {
@@ -45,9 +52,17 @@ export async function addUser(store, input, actor = null) {
 }
 
 export async function login(store, username, password, clientKey) {
-  checkLimit(store, clientKey, 50);
-  const accountKey = `account:${String(username).toLowerCase()}`;
-  checkLimit(store, accountKey);
+  // Three tiers rather than one. The tight limit is on a source attacking a particular
+  // account, which is what a real guessing attempt looks like. The per-account limit is
+  // deliberately loose, because a strict one lets anybody who knows a username lock its owner
+  // out - the attacker needs no password at all for that. The loose limit still stops a
+  // distributed attempt, at the price of being far more effort to abuse as a nuisance.
+  const name = String(username).trim().toLowerCase();
+  const accountKey = `account:${name}`;
+  const pairKey = `pair:${name}:${clientKey}`;
+  checkLimit(store, clientKey, 50, `Sign-in from ${clientKey}`);
+  checkLimit(store, pairKey, 10, `Sign-in from ${clientKey} against "${name}"`);
+  checkLimit(store, accountKey, 100, `Sign-in against "${name}" from many sources`);
   // The registered address is an identity in its own right: an administrator hands out an
   // email, and that is what the holder signs in with. An address nobody registered matches
   // nothing here, which is what keeps unregistered people out.
@@ -57,7 +72,8 @@ export async function login(store, username, password, clientKey) {
   const stored = row?.password_hash || `${'0'.repeat(32)}:${'0'.repeat(128)}`;
   const computed = await passwordHash(password, stored.split(':')[0]);
   if (!equal(stored, computed) || !row || row.disabled) throw new AppError('Incorrect username or password.', 401);
-  store.run('DELETE FROM login_limits WHERE key = ?', accountKey);
+  // A correct password clears this source's and this account's counters.
+  store.run('DELETE FROM login_limits WHERE key IN (?, ?, ?)', accountKey, pairKey, clientKey);
   const token = randomBytes(32).toString('hex'), csrf = randomBytes(32).toString('hex');
   store.run('DELETE FROM sessions WHERE expires < ?', Date.now());
   store.run('INSERT INTO sessions VALUES(?, ?, ?, ?)', hashToken(token), row.id, csrf, Date.now() + SESSION_HOURS * 3600000);

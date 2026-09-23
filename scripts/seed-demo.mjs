@@ -1,6 +1,7 @@
 // Fills a database with a small, obviously fictional demo so the screens can be reviewed.
 // It refuses to touch a database that already holds accounts, and every password it sets is
 // a placeholder that must be changed before the system is used for real work.
+import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdir } from 'node:fs/promises';
@@ -10,7 +11,9 @@ import { createRequest, submitRequest, decideRequest, cancelRequest } from '../s
 import { releasePayment } from '../src/payments.mjs';
 import { setOpeningBalance, disburse, recordReturn, createReplenishment, decideReplenishment, fundReplenishment, balance } from '../src/pettycash.mjs';
 
-const PLACEHOLDER = 'change-this-password';
+// Generated, never written down here. A fixed password in a file is a published password:
+// this repository is readable, so anything constant in it is known to everyone.
+const PLACEHOLDER = `Demo-${randomBytes(9).toString('base64url')}`;
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const dataDirectory = path.resolve(process.env.FR_DATA_DIR || path.join(directory, '../data'));
 await mkdir(dataDirectory, { recursive: true });
