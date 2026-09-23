@@ -3,6 +3,7 @@ import { readFile, mkdir } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { fork } from 'node:child_process';
 import { z } from 'zod';
 import { Store } from './store.mjs';
 import { AppError, permit } from './errors.mjs';
@@ -385,7 +386,8 @@ export function createApp({ store, origin, setupToken, logo = null, extraOrigins
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  const host = process.env.FR_HOST || '127.0.0.1', port = Number(process.env.FR_PORT || 3403);
+  // PORT is what a container host injects; FR_PORT still wins so an office install is unaffected.
+  const host = process.env.FR_HOST || '127.0.0.1', port = Number(process.env.FR_PORT || process.env.PORT || 3403);
   const origin = process.env.FR_ORIGIN || `http://127.0.0.1:${port}`;
   if (!['127.0.0.1', '::1', 'localhost'].includes(host) && !origin.startsWith('https://')) throw new Error('Remote hosting requires an HTTPS FR_ORIGIN behind a TLS reverse proxy.');
   const dataDirectory = path.resolve(process.env.FR_DATA_DIR || path.join(directory, '../data'));
@@ -403,6 +405,28 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     console.log(`${store.config().companyName || DEFAULT_CONFIG.companyName} - Financial Monitoring is running at ${origin}`);
     if (!store.get('SELECT COUNT(*) AS n FROM users').n) console.log(`One-time setup code: ${setupToken}\nOpen the application to create the first administrator account.`);
   });
-  const close = () => { app.closeAllConnections(); app.close(() => { store.close(); process.exit(0); }); };
+  // On a machine with a task scheduler, backups are a scheduled task and this stays off. On a
+  // container host there is no scheduler, so the service takes its own - as a separate child
+  // process, so a failed backup can never take the service down with it.
+  const everyMinutes = Number(process.env.FR_BACKUP_EVERY_MINUTES || 0);
+  let backupTimer = null;
+  if (everyMinutes > 0) {
+    const script = path.join(directory, '../scripts/backup.mjs');
+    const runBackup = () => {
+      const child = fork(script, { stdio: 'inherit' });
+      child.on('error', error => console.error('Backup could not start:', error.message));
+      child.on('exit', code => { if (code) console.error(`Backup exited with code ${code}.`); });
+    };
+    backupTimer = setInterval(runBackup, everyMinutes * 60_000);
+    backupTimer.unref();
+    console.log(`Backups every ${everyMinutes} minute(s), keeping ${process.env.FR_KEEP_BACKUPS || 240}.`);
+    runBackup();
+  }
+
+  const close = () => {
+    if (backupTimer) clearInterval(backupTimer);
+    app.closeAllConnections();
+    app.close(() => { store.close(); process.exit(0); });
+  };
   process.on('SIGINT', close); process.on('SIGTERM', close);
 }

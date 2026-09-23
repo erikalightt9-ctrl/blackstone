@@ -1,0 +1,16 @@
+# Never copy the office machine's database or backups into an image.
+data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+node_modules/
+.git/
+tests/
+deploy/
+.claude/
+*.xlsx
+*.pdf
+*.csv
+README.md
+DEPLOY.md

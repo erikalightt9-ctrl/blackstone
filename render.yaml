@@ -1,0 +1,25 @@
+# Render deployment. The disk is what makes this safe to run here: it is a real volume that
+# survives restarts and redeploys, mounted where the application keeps its database.
+services:
+  - type: web
+    name: financial-monitoring
+    runtime: docker
+    plan: starter          # a free instance sleeps and has no disk; records must not sleep
+    healthCheckPath: /
+    disk:
+      name: finance-data
+      mountPath: /data     # must match FR_DATA_DIR
+      sizeGB: 1
+    envVars:
+      - key: FR_ORIGIN
+        sync: false        # set to the https://... address Render gives this service
+      - key: FR_HOST
+        value: 0.0.0.0
+      - key: FR_TRUST_PROXY
+        value: "1"
+      - key: FR_DATA_DIR
+        value: /data
+      - key: FR_BACKUP_EVERY_MINUTES
+        value: "60"
+      - key: FR_KEEP_BACKUPS
+        value: "240"

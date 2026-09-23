@@ -135,6 +135,71 @@ login-attempt limit.
 > the service. The application has no second factor of its own, so without Access a leaked
 > password is the only thing between an outsider and your financial records.
 
+## 4b. On a hosting provider instead of this PC (Railway or Render)
+
+Everything above keeps the service on an office machine, which means it is reachable only
+while that machine is on. To have it available regardless, it can run as a container on a
+hosting provider instead.
+
+**The volume is the whole point.** The application is one long-lived process writing to one
+SQLite file, so it needs a real disk that survives restarts and redeploys. That is why it
+cannot go on a serverless host such as Vercel: there the filesystem is wiped between
+invocations, so every approval and every passbook line would be lost. Any provider is fine as
+long as it runs a container with a persistent volume attached.
+
+`Dockerfile`, `render.yaml` and `railway.json` in the repository are the whole configuration.
+
+### Render
+
+1. **New > Web Service**, connect the GitHub repository. It reads `render.yaml`.
+2. Check that the disk is attached and mounted at **`/data`** - the same path as `FR_DATA_DIR`.
+   Without it the database is deleted on the next deploy.
+3. Deploy, then copy the `https://...onrender.com` address it gives you.
+4. Set **`FR_ORIGIN`** to exactly that address and redeploy. The service refuses to serve a
+   name it has not been told about, so forms will be rejected until this matches.
+
+The free instance type has no disk and sleeps when idle, so it is not suitable: records must
+not sleep. Use the paid instance type.
+
+### Railway
+
+1. **New Project > Deploy from GitHub repo.** It reads `railway.json` and builds the Dockerfile.
+2. Add a **Volume** mounted at **`/data`**.
+3. **Settings > Networking > Generate Domain**, then set **`FR_ORIGIN`** to that address.
+
+### Settings either provider needs
+
+| Variable | Value | Why |
+| --- | --- | --- |
+| `FR_ORIGIN` | the `https://...` address of the service | The only name the service accepts forms from |
+| `FR_DATA_DIR` | `/data` | Must equal the volume's mount path |
+| `FR_HOST` | `0.0.0.0` | The container must accept the platform's traffic |
+| `FR_TRUST_PROXY` | `1` | The platform terminates TLS, so the real client address arrives in a header. Without this every visitor shares one login-attempt bucket |
+| `FR_BACKUP_EVERY_MINUTES` | `60` | There is no Windows task scheduler here, so the service backs itself up |
+| `FR_KEEP_BACKUPS` | `240` | Ten days of hourly copies |
+
+`PORT` is injected by the platform and used automatically; `FR_PORT` still overrides it.
+
+### First run
+
+The database starts empty, exactly as a new installation does. The log prints a one-time setup
+code - open the address, enter it, and create the administrator account. Then add the banks,
+the bank accounts and each account's beginning balance as in section 7.
+
+### Backups, and their limit
+
+The service takes a verified backup every hour into `/data/backups`, which is on the same
+volume as the database. That protects against a mistake in the data; it does **not** protect
+against losing the volume. Set `FR_BACKUP_COPY_TO` to a path outside the volume, or download a
+copy periodically, or take the provider's own disk snapshots. A backup that lives only on the
+disk it is backing up is not really a backup.
+
+### What moves with it
+
+Your financial records would then live on that provider's servers rather than in the office.
+That may be entirely acceptable - it is worth deciding deliberately rather than discovering it
+later.
+
 ## 5. Email, so password resets can be sent
 
 Accounts are reached by their **registered email address**, and that is where a reset link is
