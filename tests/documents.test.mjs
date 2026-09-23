@@ -38,7 +38,7 @@ test('a maker cannot attach after submitting, but a reviewer still can', () => {
   const store = newStore();
   const request = draftPayment(store);
   submitRequest(store, actors.maker, request.id);
-  assert.throws(() => uploadDocument(store, actors.maker, request.id, pdf()), /can no longer be changed by its maker/);
+  assert.throws(() => uploadDocument(store, actors.maker, request.id, pdf()), /can no longer be changed by the person who filed it/);
   const added = uploadDocument(store, actors.approver, request.id, pdf());
   assert.equal(getRequest(store, actors.approver, request.id).documents.length, 1);
   assert.equal(added.uploadedBy, 'Carla Approver');

@@ -190,13 +190,18 @@ export function createApp({ store, origin, setupToken, logo = null, extraOrigins
         send(200, await changePassword(store, actor, body.currentPassword, body.newPassword)); return;
       }
       if (pathname === '/api/bootstrap' && req.method === 'GET') {
+        const seesBank = [...BANK_RECORD_ROLES, 'viewer'].includes(actor.role);
         send(200, {
           user: actor, config: store.config(), categories: listCategories(store, { includeInactive: actor.role === 'admin' }),
           dashboard: dashboard(store, actor), reports: reportsFor(actor), statuses: STATUSES.map(id => ({ id, label: STATUS_LABELS[id] })),
           kinds: Object.entries(KIND_LABELS).map(([id, label]) => ({ id, label })), paymentMethods: PAYMENT_METHODS,
           roles: ROLES.map(id => ({ id, label: ROLE_LABELS[id] })), canPrintAccountingCopy: ACCOUNTING_COPY_ROLES.includes(actor.role),
           bankTypes: BANK_TRANSACTION_TYPES,
-          bankAccounts: listBankAccounts(store, actor), banks: listBanks(store, actor), currencies: listCurrencies(store, actor),
+          // The company's bank accounts are not sent to somebody who may not see them. A
+          // requester files requests and has no business knowing which accounts exist, so the
+          // list is absent from their payload rather than merely hidden on their screen.
+          ...(seesBank ? { bankAccounts: listBankAccounts(store, actor), banks: listBanks(store, actor), currencies: listCurrencies(store, actor) }
+            : { bankAccounts: [], banks: [], currencies: [] }),
           canSeePettyCashFund: PETTY_CASH_FUND_ROLES.includes(actor.role),
           canEncodeBankRecords: BANK_RECORD_ROLES.includes(actor.role),
           canVoidBankRecords: ['admin', 'approver'].includes(actor.role),

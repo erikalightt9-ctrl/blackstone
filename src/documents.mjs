@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { documentSchema } from './schema.mjs';
 import { AppError, permit, found } from './errors.mjs';
+import { FILER_ROLES } from './defaults.mjs';
 import { requestRow, seesAllRequests, MAKER_ROLES } from './requests.mjs';
 import { isEditable } from './workflow.mjs';
 
@@ -21,7 +22,7 @@ export function uploadDocument(store, actor, requestId, input) {
     if (!seesAllRequests(actor) && row.maker_id !== actor.id) throw new AppError('Request not found.', 404);
     // Makers may attach only while the request is still theirs to edit; reviewers may add
     // evidence at any time, which is recorded in the history like every other action.
-    if (actor.role === 'maker' && !isEditable(row.status)) throw new AppError('A submitted request can no longer be changed by its maker. Ask an approver to attach the document.', 409);
+    if (FILER_ROLES.includes(actor.role) && !isEditable(row.status)) throw new AppError('A submitted request can no longer be changed by the person who filed it. Ask an approver to attach the document.', 409);
     const document = { id: randomUUID(), name: value.name, mime: value.mime, size: content.length, uploadedBy: actor.fullName, uploadedAt: new Date().toISOString() };
     store.run('INSERT INTO documents(id, request_id, name, mime, size, uploaded_by, uploaded_at, content) VALUES(?,?,?,?,?,?,?,?)',
       document.id, requestId, document.name, document.mime, document.size, document.uploadedBy, document.uploadedAt, content);

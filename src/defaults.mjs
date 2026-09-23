@@ -44,11 +44,15 @@ export const DEFAULT_CATEGORIES = [
   ['UTILITIES', 'Utilities'],
 ];
 
-export const ROLES = ['admin', 'maker', 'approver', 'viewer'];
+export const ROLES = ['admin', 'maker', 'requester', 'approver', 'viewer'];
 // The people who actually approve - Demry Cheng and Vicente Cheng - sign the printed form
 // and hold no account here. A "Releaser" is the member of staff who records that signed
 // approval in the system and then releases the payment or disburses the cash.
-export const ROLE_LABELS = { admin: 'Administrator / Releaser', maker: 'Maker', approver: 'Releaser', viewer: 'Viewer' };
+export const ROLE_LABELS = { admin: 'Administrator / Releaser', maker: 'Maker', requester: 'Requester', approver: 'Releaser', viewer: 'Viewer' };
+// A Requester files payment and petty cash requests and nothing else. They are a Maker without
+// the passbook: deliberately absent from BANK_RECORD_ROLES below, and from the fund roles, so
+// they never see the bank accounts or what is in the petty cash box.
+export const FILER_ROLES = ['maker', 'requester'];
 // The Accounting / Internal copy carries the expense classifications and stays with these roles.
 export const ACCOUNTING_COPY_ROLES = ['admin', 'approver'];
 export const PAYMENT_METHODS = ['Check', 'Bank Transfer', 'Cash', 'Online Payment'];

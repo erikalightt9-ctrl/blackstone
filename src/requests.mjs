@@ -6,7 +6,7 @@ import { requireActiveCategory } from './categories.mjs';
 import { nextNumber } from './numbering.mjs';
 import { transition, availableActions, isEditable, STATUS_LABELS, KIND_LABELS } from './workflow.mjs';
 
-export const MAKER_ROLES = ['admin', 'maker'];
+export const MAKER_ROLES = ['admin', 'maker', 'requester'];
 const NUMBER_FORMAT = { payment: 'paymentNumberFormat', petty_cash: 'pettyCashNumberFormat' };
 
 // Makers see the requests they prepared. Approvers, viewers and administrators
@@ -185,7 +185,7 @@ export function cancelRequest(store, actor, id, input) {
 // Review feedback. A comment is an immutable audit entry: it is visible to the maker, it is
 // part of the permanent history, and it changes nothing about the request itself. This is how
 // a reviewer raises a discrepancy without touching the maker's figures.
-export const COMMENT_ROLES = ['admin', 'approver', 'maker'];
+export const COMMENT_ROLES = ['admin', 'approver', 'maker', 'requester'];
 export function addComment(store, actor, id, input) {
   permit(actor, COMMENT_ROLES);
   const value = commentSchema.parse(input);

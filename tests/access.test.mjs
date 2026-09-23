@@ -129,6 +129,27 @@ test('every fund route is refused to a maker over HTTP, and the bank routes are 
   assert.equal((await call(`/api/bank/${record.id}/void`, maker, { method: 'POST', body: { reason: 'Encoded twice' } })).status, 403, 'voiding is not theirs');
   assert.equal((await call(`/api/bank/${record.id}/void`, boss, { method: 'POST', body: { reason: 'Encoded twice' } })).status, 200);
 
+  // A requester is a maker without the passbook: same requests, no bank records at all.
+  await addUser(store, { username: 'requester1', fullName: 'Fay Requester', email: 'requester1@example.test', role: 'requester', password: PASSWORD }, admin);
+  const filer = await signIn('requester1');
+  for (const path of ['/api/petty-cash', '/api/replenishments']) {
+    assert.equal((await call(path, filer)).status, 403, `${path} is closed to a requester`);
+  }
+  assert.equal((await call('/api/bank', filer)).status, 403, 'the passbook is closed to a requester');
+  assert.equal((await call('/api/bank-accounts', filer)).status, 403, 'and so are the accounts behind it');
+  assert.equal((await call('/api/bank/template', filer)).status, 403, 'including the import template');
+  assert.equal((await call('/api/requests?kind=payment', filer)).status, 200, 'but their own requests are theirs to file');
+
+  const filerBootstrap = await (await call('/api/bootstrap', filer)).json();
+  assert.equal(filerBootstrap.canEncodeBankRecords, false);
+  assert.equal(filerBootstrap.canSeePettyCashFund, false);
+  assert.equal(filerBootstrap.canManageBankAccounts, false);
+  assert.equal(filerBootstrap.dashboard.bank, null, 'no passbook summary reaches them');
+  assert.equal(filerBootstrap.dashboard.pettyCash.balance, undefined, 'nor the fund balance');
+
+  // And none of this disturbed the maker, who keeps the passbook.
+  assert.equal((await call('/api/bank', maker)).status, 200, 'the maker still keeps the passbook');
+
   const adminBootstrap = await (await call('/api/bootstrap', boss)).json();
   assert.equal(adminBootstrap.canSeePettyCashFund, true);
   assert.equal(adminBootstrap.canVoidBankRecords, true);

@@ -15,7 +15,7 @@ export const STATUS_LABELS = {
 export const KIND_LABELS = { payment: 'Payment Request', petty_cash: 'Petty Cash Request' };
 
 const shared = {
-  submit: { from: ['draft'], to: 'submitted', roles: ['admin', 'maker'] },
+  submit: { from: ['draft'], to: 'submitted', roles: ['admin', 'maker', 'requester'] },
   approve: { from: ['submitted'], to: 'approved', roles: ['admin', 'approver'] },
   reject: { from: ['submitted'], to: 'rejected', roles: ['admin', 'approver'] },
   cancel: { from: ['draft', 'submitted', 'approved', 'paid', 'disbursed'], to: 'cancelled', roles: ['admin', 'approver'] },

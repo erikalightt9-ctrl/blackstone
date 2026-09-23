@@ -6,6 +6,7 @@ export const actors = {
   admin: { id: 'u-admin', username: 'admin', fullName: 'System Administrator', email: 'admin@example.test', role: 'admin' },
   maker: { id: 'u-maker', username: 'amaker', fullName: 'Ana Maker', email: 'amaker@example.test', role: 'maker' },
   maker2: { id: 'u-maker2', username: 'bmaker', fullName: 'Ben Maker', email: 'bmaker@example.test', role: 'maker' },
+  requester: { id: 'u-requester', username: 'frequester', fullName: 'Fay Requester', email: 'frequester@example.test', role: 'requester' },
   approver: { id: 'u-approver', username: 'capprover', fullName: 'Carla Approver', email: 'capprover@example.test', role: 'approver' },
   releaser: { id: 'u-releaser', username: 'dreleaser', fullName: 'Dina Releaser', email: 'dreleaser@example.test', role: 'approver' },
   viewer: { id: 'u-viewer', username: 'eviewer', fullName: 'Elle Viewer', email: 'eviewer@example.test', role: 'viewer' },

@@ -61,10 +61,17 @@ test('the maker submits and the approver does everything after that', () => {
   assert.throws(() => transition('payment', 'nope', 'draft'), WorkflowError);
 });
 
-test('only the maker and the approver appear in the workflow at all', () => {
+test('only those who file and those who approve appear in the workflow at all', () => {
   const roles = new Set();
   for (const actions of Object.values(ACTIONS)) for (const rule of Object.values(actions)) for (const role of rule.roles) roles.add(role);
-  assert.deepEqual([...roles].sort(), ['admin', 'approver', 'maker']);
+  // A requester files and submits like a maker; everything after that is the approver's.
+  assert.deepEqual([...roles].sort(), ['admin', 'approver', 'maker', 'requester']);
+  for (const [kind, actions] of Object.entries(ACTIONS)) {
+    for (const [action, rule] of Object.entries(actions)) {
+      if (action === 'submit') continue;
+      assert.ok(!rule.roles.includes('requester'), `${kind}.${action} must never be available to a requester`);
+    }
+  }
   for (const [kind, actions] of Object.entries(ACTIONS)) {
     for (const [action, rule] of Object.entries(actions)) {
       assert.ok(rule.roles.includes('admin'), `${kind}.${action} must remain available to an administrator`);
