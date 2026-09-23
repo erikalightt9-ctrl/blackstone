@@ -154,15 +154,17 @@ export const categorySchema = z.object({
 export const email = z.string().trim().toLowerCase().max(200)
   .refine(v => /^[^\s@]+@[^\s@.]+\.[^\s@]{2,}$/.test(v), 'Enter a valid email address');
 
+export const username = z.string().trim().regex(/^[A-Za-z0-9_.@-]{3,80}$/, 'Usernames use letters, numbers and _ . @ - only, at least three characters');
+
 export const userSchema = z.object({
-  username: z.string().trim().regex(/^[A-Za-z0-9_.@-]{3,80}$/, 'Usernames use letters, numbers and _ . @ - only'),
+  username,
   fullName: text(160),
   email,
   password: z.string().min(12, 'Use a password of at least 12 characters').max(200),
   role: z.enum(ROLES),
 }).strict();
 
-export const userUpdateSchema = z.object({ fullName: text(160), email, role: z.enum(ROLES) }).strict();
+export const userUpdateSchema = z.object({ username, fullName: text(160), email, role: z.enum(ROLES) }).strict();
 export const resetRequestSchema = z.object({ identifier: z.string().trim().min(1).max(200) }).strict();
 export const resetRedeemSchema = z.object({
   token: z.string().trim().regex(/^[a-f0-9]{64}$/, 'That reset link is not valid.'),

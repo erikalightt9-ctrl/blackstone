@@ -337,14 +337,14 @@ function userDialog(user = null) {
         <small>Used to sign in and to receive password reset links.</small></label>
       <label class="field">Full name<input id="fullName" autocomplete="off" value="${esc(user?.fullName || '')}"><small>Printed on the request as Maker or Releaser.</small></label>
       <label class="field">Role<select id="role">${boot.roles.map(role => `<option value="${role.id}"${role.id === user?.role ? ' selected' : ''}>${esc(role.label)}</option>`).join('')}</select></label>
-      ${user ? '' : `<label class="field">Username<input id="username" autocomplete="off"><small>A short name they may sign in with instead of the email.</small></label>
-      <label class="field">First password<input type="password" id="password" autocomplete="new-password"><small>At least 12 characters. They can change it, or use a reset link.</small></label>`}
+      <label class="field">Username<input id="username" autocomplete="off" value="${esc(user?.username || '')}"><small>A short name they may sign in with instead of the email. Renaming is safe: nothing is filed under it.</small></label>
+      ${user ? '' : '<label class="field">First password<input type="password" id="password" autocomplete="new-password"><small>At least 12 characters. They can change it, or use a reset link.</small></label>'}
     </div>`, `<button id="cancel">Cancel</button><button class="primary" id="save">${user ? 'Save account' : 'Register account'}</button>`);
   dialog.querySelector('#cancel').addEventListener('click', closeDialog);
   dialog.querySelector('#save').addEventListener('click', async () => {
     const value = id => dialog.querySelector(`#${id}`)?.value.trim() || '';
     try {
-      if (user) await api(`/users/${user.id}`, { fullName: value('fullName'), email: value('email'), role: value('role') });
+      if (user) await api(`/users/${user.id}`, { username: value('username'), fullName: value('fullName'), email: value('email'), role: value('role') });
       else {
         await api('/users', {
           username: value('username'), fullName: value('fullName'), email: value('email'),

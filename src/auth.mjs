@@ -145,10 +145,17 @@ export function updateUser(store, actor, id, input) {
     const before = shapeUser(found(store.get('SELECT * FROM users WHERE id = ?', id), 'Account'));
     const clash = store.get('SELECT id FROM users WHERE email = ? AND id <> ?', value.email, id);
     if (clash) throw new AppError(`${value.email} is already registered to another account.`, 409);
+    // Usernames are compared without regard to case, as the column itself is, so "Angela" and
+    // "angela" cannot both exist.
+    const taken = store.get('SELECT id FROM users WHERE username = ? AND id <> ?', value.username, id);
+    if (taken) throw new AppError(`The username ${value.username} is already taken.`, 409);
     if (before.role === 'admin' && value.role !== 'admin' && store.get("SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND disabled = 0").n < 2) {
       throw new AppError('This is the only administrator. Register another one before changing this role.');
     }
-    store.run('UPDATE users SET full_name = ?, email = ?, role = ? WHERE id = ?', value.fullName, value.email, value.role, id);
+    // Nothing anywhere is filed under the username - requests, the ledger and the history all
+    // key on the account's id - so renaming is a label change and carries no history with it.
+    store.run('UPDATE users SET username = ?, full_name = ?, email = ?, role = ? WHERE id = ?',
+      value.username, value.fullName, value.email, value.role, id);
     const after = shapeUser(store.get('SELECT * FROM users WHERE id = ?', id));
     const changed = Object.keys(after).filter(key => before[key] !== after[key]);
     store.log(actor, 'update', 'user', id, { detail: `Account ${after.username} updated: ${changed.map(k => `${k} "${before[k]}" to "${after[k]}"`).join('; ') || 'no change'}`, before, after });

@@ -43,13 +43,13 @@ test('the registered email is an identity: it signs in, and an unregistered one 
 
 test('only an administrator changes the registry, and never to a duplicate', async () => {
   const { store, admin, maker } = await office();
-  assert.throws(() => updateUser(store, { id: maker.id, role: 'maker' }, maker.id, { fullName: 'Angela Din', email: 'other@example.com', role: 'maker' }), /permission/);
-  const updated = updateUser(store, admin, maker.id, { fullName: 'Angela D. Din', email: 'angela@example.com', role: 'maker' });
+  assert.throws(() => updateUser(store, { id: maker.id, role: 'maker' }, maker.id, { username: 'maker', fullName: 'Angela Din', email: 'other@example.com', role: 'maker' }), /permission/);
+  const updated = updateUser(store, admin, maker.id, { username: 'maker', fullName: 'Angela D. Din', email: 'angela@example.com', role: 'maker' });
   assert.equal(updated.email, 'angela@example.com');
   assert.equal(updated.fullName, 'Angela D. Din');
   assert.equal((await login(store, 'angela@example.com', PASSWORD, 'k1')).user.username, 'maker', 'the new address signs in');
   await assert.rejects(login(store, 'angela.din@example.com', PASSWORD, 'k2'), /Incorrect/, 'the old one no longer does');
-  assert.throws(() => updateUser(store, admin, maker.id, { fullName: 'X', email: 'erika@example.com', role: 'maker' }), /already registered/);
+  assert.throws(() => updateUser(store, admin, maker.id, { username: 'maker', fullName: 'X', email: 'erika@example.com', role: 'maker' }), /already registered/);
   const updates = store.history('user', maker.id).filter(entry => entry.action === 'update');
   assert.equal(updates.length, 1, 'only the change that succeeded was recorded');
   assert.match(updates[0].detail, /email "angela.din@example.com" to "angela@example.com"/);
@@ -59,9 +59,9 @@ test('only an administrator changes the registry, and never to a duplicate', asy
 
 test('the last administrator cannot be demoted into locking everyone out', async () => {
   const { store, admin } = await office();
-  assert.throws(() => updateUser(store, admin, admin.id, { fullName: 'Erika Hernando', email: 'erika@example.com', role: 'maker' }), /only administrator/);
+  assert.throws(() => updateUser(store, admin, admin.id, { username: 'erika', fullName: 'Erika Hernando', email: 'erika@example.com', role: 'maker' }), /only administrator/);
   await addUser(store, { username: 'second', fullName: 'Second Admin', email: 'second@example.com', role: 'admin', password: PASSWORD }, admin);
-  const demoted = updateUser(store, admin, admin.id, { fullName: 'Erika Hernando', email: 'erika@example.com', role: 'approver' });
+  const demoted = updateUser(store, admin, admin.id, { username: 'erika', fullName: 'Erika Hernando', email: 'erika@example.com', role: 'approver' });
   assert.equal(demoted.role, 'approver', 'with a second administrator in place it is allowed');
   store.close();
 });
@@ -154,5 +154,22 @@ test('the stored token is a hash, so the database never holds a usable link', as
   assert.notEqual(stored, token);
   assert.match(stored, /^[a-f0-9]{64}$/);
   assert.equal(store.get('SELECT COUNT(*) AS n FROM password_resets WHERE token_hash = ?', token).n, 0);
+  store.close();
+});
+
+test('an account can be renamed, but not onto a name already in use', async () => {
+  const store = new Store();
+  const admin = await addUser(store, { username: 'erika', fullName: 'Erika Hernando', email: 'erika@example.com', role: 'admin', password: 'a-strong-enough-password' });
+  const maker = await addUser(store, { username: 'maker', fullName: 'Angela Din', email: 'angela@example.com', role: 'maker', password: 'a-strong-enough-password' }, admin);
+
+  const renamed = updateUser(store, admin, maker.id, { username: 'angela', fullName: 'Angela Din', email: 'angela@example.com', role: 'maker' });
+  assert.equal(renamed.username, 'angela');
+  // Signing in follows the new name, and the old one matches nothing.
+  assert.equal((await login(store, 'angela', 'a-strong-enough-password', 'c1')).user.id, maker.id);
+  await assert.rejects(() => login(store, 'maker', 'a-strong-enough-password', 'c2'), /Incorrect username or password/);
+
+  // Not a name somebody else already answers to, whatever the case it is typed in.
+  assert.throws(() => updateUser(store, admin, maker.id, { username: 'ERIKA', fullName: 'Angela Din', email: 'angela@example.com', role: 'maker' }), /already taken/);
+  assert.throws(() => updateUser(store, admin, maker.id, { username: 'ad', fullName: 'Angela Din', email: 'angela@example.com', role: 'maker' }), /at least three characters/);
   store.close();
 });
