@@ -202,31 +202,42 @@ later.
 
 ## 4c. On your own Linux server, under your own domain (Docker Compose)
 
-`docker-compose.yml` runs two containers: the application, and Caddy in front of it. Caddy is
-the only thing reachable from outside. It gets the HTTPS certificate for your domain from
-Let's Encrypt on first start and renews it by itself. The application is never published on
-a host port, so nothing can reach it around the proxy.
+`docker-compose.yml` runs the application as one container, `blackstone`, published on
+`127.0.0.1:3303` only. Nothing outside the server can reach it directly: the server's own web
+server answers for your domain, holds the HTTPS certificate, and forwards to it.
 
 **Before you start**
 
 - An `A` record for your chosen name (say `finance.yourcompany.com`) pointing at the server.
-- Ports **80 and 443** open to the internet on the server's firewall. Let's Encrypt checks
-  port 80 to prove the domain is yours, even though everyone uses 443 afterwards.
-- If the server is reachable only inside your network, Let's Encrypt cannot reach it. Say so
-  and the Caddyfile can use your own certificate instead.
+- If the server's Caddy gets its certificates from Let's Encrypt, as it does for its other
+  sites, ports 80 and 443 are already open and nothing more is needed.
 
 **First start**
 
 ```bash
 git clone <this repository> blackstone && cd blackstone
-cp .env.example .env            # set DOMAIN and ACME_EMAIL, and the mail settings if you have them
+cp .env.example .env            # set DOMAIN, and the mail settings if you have them
 mkdir -p backups && sudo chown 1000:1000 backups   # the app runs as uid 1000 and writes here
 docker compose up -d --build
-docker compose logs blackstone         # prints the one-time setup code
+docker compose logs blackstone  # prints the one-time setup code
+```
+
+Then give the domain to the server's Caddy. Add the block in `deploy/Caddyfile.site` to
+`/etc/caddy/Caddyfile`, with your domain in place of `finance.example.com`, and reload:
+
+```bash
+sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
 ```
 
 Open `https://<DOMAIN>`, enter the code, and create the administrator. Then carry on with
 section 2's list and section 7.
+
+**A server with no web server of its own** can run the bundled Caddy instead, which takes
+ports 80 and 443 and gets the certificate by itself:
+
+```bash
+docker compose --profile caddy up -d --build
+```
 
 **Where the data is**
 
@@ -253,12 +264,13 @@ database. `docker compose down` on its own is safe.
 | See what the backups hold | `docker compose stop blackstone && docker compose run --rm --no-deps blackstone node scripts/restore.mjs` |
 | Put a backup back | `docker compose run --rm --no-deps blackstone node scripts/restore.mjs <file> --confirm && docker compose start blackstone` |
 
-**Why Caddy has a fixed address.** The login limits count attempts per visitor. Behind a
+**Why the proxy addresses are fixed.** The login limits count attempts per visitor. Behind a
 proxy every connection comes from the proxy, so the app reads the visitor's real address from
-the header Caddy adds, but only when the connection comes from `172.28.0.2`, Caddy's fixed
-address, named in `FR_TRUSTED_PROXIES`. Anything else on the network sending that header is
-ignored. If `172.28.0.0/24` clashes with a network your server already uses, change the subnet
-and all three addresses in `docker-compose.yml` together.
+the header the proxy adds, but only from the addresses in `FR_TRUSTED_PROXIES`: `172.28.0.1`,
+the network's gateway, which is where the server's own web server appears from, and
+`172.28.0.2`, the bundled Caddy. Anything else sending that header is ignored. If
+`172.28.0.0/24` clashes with a network your server already uses, change the subnet, the
+gateway, the two fixed addresses and `FR_TRUSTED_PROXIES` in `docker-compose.yml` together.
 
 ## 5. Email, so password resets can be sent
 

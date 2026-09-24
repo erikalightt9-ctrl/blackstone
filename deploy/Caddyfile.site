@@ -1,0 +1,18 @@
+# The site block to add to the server's own Caddy (usually /etc/caddy/Caddyfile), for a server
+# that already answers on 80 and 443. Replace the domain with the one in .env, then:
+#
+#   sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
+#
+# The certificate is obtained and renewed by that Caddy, exactly as for its other sites.
+
+finance.example.com {
+	encode zstd gzip
+
+	# The port in .env as BLACKSTONE_PORT, 3303 unless changed.
+	reverse_proxy 127.0.0.1:3303 {
+		# Caddy sets X-Forwarded-For to the real visitor itself. A CF-Connecting-IP header can
+		# only have been typed by the visitor, since no Cloudflare is in front, so it is removed
+		# rather than passed on for the app to believe.
+		header_up -CF-Connecting-IP
+	}
+}

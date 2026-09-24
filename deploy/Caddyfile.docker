@@ -1,11 +1,8 @@
-# The HTTPS front door for docker-compose.yml. DOMAIN and ACME_EMAIL come from .env.
+# The bundled HTTPS front door, used only with `docker compose --profile caddy`. DOMAIN comes
+# from .env. A server that already runs its own Caddy uses deploy/Caddyfile.site instead.
 #
 # Caddy obtains a Let's Encrypt certificate for DOMAIN on first start and renews it by itself.
 # That needs DOMAIN's DNS pointed at this server and ports 80 and 443 open to the internet.
-
-{
-	email {$ACME_EMAIL}
-}
 
 {$DOMAIN} {
 	encode zstd gzip
