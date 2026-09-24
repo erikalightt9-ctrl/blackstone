@@ -10,7 +10,7 @@
 name: blackstone
 
 services:
-  app:
+  blackstone:
     build: .
     image: blackstone:latest
     container_name: blackstone
@@ -44,7 +44,7 @@ services:
     container_name: blackstone-caddy
     restart: unless-stopped
     depends_on:
-      app:
+      blackstone:
         condition: service_healthy
     ports:
       - "80:80"                   # needed for the certificate challenge and the redirect to https

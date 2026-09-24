@@ -10,7 +10,7 @@
 {$DOMAIN} {
 	encode zstd gzip
 
-	reverse_proxy app:3403 {
+	reverse_proxy blackstone:3403 {
 		# Caddy sets X-Forwarded-For to the real visitor itself. A CF-Connecting-IP header can
 		# only have been typed by the visitor, since no Cloudflare is in front, so it is removed
 		# rather than passed on for the app to believe.

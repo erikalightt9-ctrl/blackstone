@@ -222,7 +222,7 @@ git clone <this repository> blackstone && cd blackstone
 cp .env.example .env            # set DOMAIN and ACME_EMAIL, and the mail settings if you have them
 mkdir -p backups && sudo chown 1000:1000 backups   # the app runs as uid 1000 and writes here
 docker compose up -d --build
-docker compose logs app         # prints the one-time setup code
+docker compose logs blackstone         # prints the one-time setup code
 ```
 
 Open `https://<DOMAIN>`, enter the code, and create the administrator. Then carry on with
@@ -246,12 +246,12 @@ database. `docker compose down` on its own is safe.
 
 | Task | Command |
 | --- | --- |
-| Status | `docker compose ps` (the app shows `healthy`) |
-| Logs | `docker compose logs -f app` |
+| Status | `docker compose ps` (`blackstone` shows `healthy`) |
+| Logs | `docker compose logs -f blackstone` |
 | Update to a new version | `git pull && docker compose up -d --build` |
-| Back up now | `docker compose exec app node scripts/backup.mjs` |
-| See what the backups hold | `docker compose stop app && docker compose run --rm --no-deps app node scripts/restore.mjs` |
-| Put a backup back | `docker compose run --rm --no-deps app node scripts/restore.mjs <file> --confirm && docker compose start app` |
+| Back up now | `docker compose exec blackstone node scripts/backup.mjs` |
+| See what the backups hold | `docker compose stop blackstone && docker compose run --rm --no-deps blackstone node scripts/restore.mjs` |
+| Put a backup back | `docker compose run --rm --no-deps blackstone node scripts/restore.mjs <file> --confirm && docker compose start blackstone` |
 
 **Why Caddy has a fixed address.** The login limits count attempts per visitor. Behind a
 proxy every connection comes from the proxy, so the app reads the visitor's real address from
