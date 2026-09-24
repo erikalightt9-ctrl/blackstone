@@ -202,30 +202,48 @@ later.
 
 ## 5. Email, so password resets can be sent
 
-Accounts are reached by their **registered email address**, and that is where a reset link is
-sent. Put the mail account's own password in the environment, never in this repository, and
-never in a shared document.
+Until this is done the system does not pretend to send anything: it shows an administrator the
+one-time reset link to hand over in person. That works, but it means a forgotten password needs
+somebody else's help - and if the only administrator forgets theirs, it needs a database.
 
-Add these to `deploy/start-service.cmd`, filling in your own values:
+**The mail password is a secret.** It goes in a local `.env` file, which is gitignored, and
+never in the repository, a script that is committed, or a chat message.
 
-```bat
-set FR_MAIL_FROM=Financial Monitoring <finance@example.com>
-set FR_SMTP_HOST=smtp.example.com
-set FR_SMTP_PORT=587
-set FR_SMTP_USER=finance@example.com
-set FR_SMTP_PASS=the-mailbox-password
+```bash
+cp .env.example .env
 ```
 
-Port **587** upgrades to TLS with STARTTLS; port **465** is encrypted from the first byte and
-is detected automatically. A single `FR_SMTP_URL=smtps://user:pass@host:465` works instead of
-the four separate settings.
+Then edit `.env`:
 
-With Google Workspace or Microsoft 365, create an **app password** for this purpose rather
-than using the mailbox's own sign-in password, so it can be revoked on its own.
+```
+FR_MAIL_FROM=finance@yourcompany.com
+FR_SMTP_HOST=smtp.gmail.com
+FR_SMTP_PORT=587
+FR_SMTP_USER=finance@yourcompany.com
+FR_SMTP_PASS=the-app-password
+```
 
-**Until this is set up nothing breaks.** The administrator's *Send reset link* button reports
-that mail is not configured and shows the one-time link to hand over in person, instead of
-claiming to have sent an email it did not send.
+Use an **app password**, not the mailbox's own sign-in password. An app password can be revoked
+by itself without disturbing the account, and it is the only thing that works when two-factor
+authentication is on - which it should be on an account that can send as your finance address.
+
+| Provider | Host | Port | Where to get an app password |
+| --- | --- | --- | --- |
+| Google Workspace / Gmail | `smtp.gmail.com` | 587 | myaccount.google.com/apppasswords |
+| Microsoft 365 | `smtp.office365.com` | 587 | security.microsoft.com, under App passwords |
+
+Check it by actually sending one:
+
+```bash
+npm run mail:check
+```
+
+It reports the settings it found - naming the password's length, never its value - sends a real
+message, and explains the usual failures if it does not arrive. Restart the service afterwards
+so it picks the settings up.
+
+On a container host there is no `.env`: set the same names as environment variables in the
+provider's dashboard. A real environment variable always beats the file.
 
 ## 6. Start with the computer, back itself up hourly
 

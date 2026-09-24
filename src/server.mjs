@@ -5,6 +5,7 @@ import path from 'node:path';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { fork } from 'node:child_process';
 import { z } from 'zod';
+import { loadEnvFile } from './env.mjs';
 import { Store } from './store.mjs';
 import { AppError, permit } from './errors.mjs';
 import { loginSchema, passwordSchema, configSchema, cancelSchema, zodMessage } from './schema.mjs';
@@ -399,6 +400,11 @@ export function createApp({ store, origin, setupToken, logo = null, extraOrigins
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  // Read before anything looks at the environment, so a local .env can supply the mail
+  // settings. Only the names are printed: the mail password must never reach a log.
+  const fromFile = loadEnvFile(path.join(directory, '../.env'));
+  if (fromFile.length) console.log(`Loaded from .env: ${fromFile.join(', ')}`);
+
   // PORT is what a container host injects; FR_PORT still wins so an office install is unaffected.
   const host = process.env.FR_HOST || '127.0.0.1', port = Number(process.env.FR_PORT || process.env.PORT || 3403);
   const origin = process.env.FR_ORIGIN || `http://127.0.0.1:${port}`;

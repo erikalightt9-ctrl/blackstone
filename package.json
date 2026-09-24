@@ -14,7 +14,8 @@
     "backup": "node scripts/backup.mjs",
     "go-live": "node scripts/go-live.mjs",
     "restore": "node scripts/restore.mjs",
-    "clear-transactions": "node scripts/clear-transactions.mjs"
+    "clear-transactions": "node scripts/clear-transactions.mjs",
+    "mail:check": "node scripts/mail-check.mjs"
   },
   "dependencies": {
     "nodemailer": "^10.0.10",

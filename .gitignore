@@ -22,6 +22,8 @@ bank-records-template.xlsx
 # address and paths, which is nobody else's business.
 .env
 .env.*
+# ...but the worked example, which contains no secrets, is published.
+!.env.example
 deploy/start-service.cmd
 deploy/Caddyfile
 deploy/*.local.*
