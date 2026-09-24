@@ -372,8 +372,8 @@ function renderLogin(setup = false, message = '') {
       <p class="muted lede">${setup ? 'Create the first administrator account using the setup code printed in the server console.' : 'Use the account issued to you by your administrator.'}</p>
       ${message ? `<div class="notice stop">${esc(message)}</div>` : ''}
       ${setup ? '<label>Setup code<input id="token" autocomplete="off"></label><label>Full name<input id="fullName" autocomplete="name"></label>' : ''}
-      <label>${setup ? 'Email' : 'Email or username'}<input id="username" autocomplete="username"></label>
-      ${setup ? '<label>Email<input id="email" type="email" autocomplete="email"></label>' : ''}
+      <label>${setup ? 'Username' : 'Email or username'}<input id="username" autocomplete="username"></label>
+      ${setup ? '<label>Registered email<input id="email" type="email" autocomplete="email"></label>' : ''}
       <label>Password<input type="password" id="password" autocomplete="current-password"></label>
       <button class="primary" type="submit">${setup ? 'Create administrator' : 'Sign in'}</button>
       ${setup ? '' : '<p class="footnote"><button type="button" class="ghost small" id="forgot">Forgotten your password?</button><br>A reset link is emailed to your registered address. Nobody, including your administrator, can read your existing password.</p>'}
