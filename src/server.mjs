@@ -98,9 +98,22 @@ export function loopbackOrigins(origin, extra = '') {
 // and walk straight through the per-source limits.
 const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
 
-export function clientAddress(req, trustProxy = false) {
+// In a container the proxy is another container, so it connects from its own address on the
+// Docker network rather than from loopback. That address is named explicitly - never a whole
+// range - so only the proxy itself is believed and nothing else on the network is.
+export function trustedProxies(extra = '') {
+  const trusted = new Set(LOOPBACK);
+  for (const value of String(extra).split(',').map(v => v.trim()).filter(Boolean)) {
+    if (!/^[0-9a-fA-F:.]+$/.test(value)) throw new Error(`FR_TRUSTED_PROXIES must be IP addresses, got "${value}"`);
+    trusted.add(value);
+    if (/^\d+\.\d+\.\d+\.\d+$/.test(value)) trusted.add(`::ffff:${value}`);
+  }
+  return trusted;
+}
+
+export function clientAddress(req, trustProxy = false, trusted = LOOPBACK) {
   const peer = req.socket.remoteAddress || 'unknown';
-  if (trustProxy && LOOPBACK.has(peer)) {
+  if (trustProxy && trusted.has(peer)) {
     const cloudflare = req.headers['cf-connecting-ip'];
     if (typeof cloudflare === 'string' && cloudflare.trim()) return cloudflare.trim().slice(0, 64);
     const forwarded = req.headers['x-forwarded-for'];
@@ -109,9 +122,10 @@ export function clientAddress(req, trustProxy = false) {
   return peer;
 }
 
-export function createApp({ store, origin, setupToken, logo = null, extraOrigins = '', trustProxy = false }) {
+export function createApp({ store, origin, setupToken, logo = null, extraOrigins = '', trustProxy = false, proxies = '' }) {
   const secure = origin.startsWith('https:');
   const allowedOrigins = loopbackOrigins(origin, extraOrigins);
+  const trusted = trustedProxies(proxies);
   return http.createServer(async (req, res) => {
     const send = (status, data) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(data)); };
     res.setHeader('Cache-Control', 'no-store');
@@ -131,7 +145,7 @@ export function createApp({ store, origin, setupToken, logo = null, extraOrigins
       }
       const mutation = req.method !== 'GET';
       if (mutation && !allowedOrigins.has(req.headers.origin)) throw new AppError('Request origin is not allowed.', 403);
-      const client = clientAddress(req, trustProxy);
+      const client = clientAddress(req, trustProxy, trusted);
 
       if (pathname === '/api/session' && req.method === 'GET') {
         const auth = session(store, req.headers.cookie);
@@ -418,7 +432,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   const setupToken = process.env.FR_SETUP_TOKEN || randomBytes(24).toString('hex');
   // The address in a reset email is the one people actually open, not the loopback bind.
   if (store.config().appUrl !== origin) store.setConfig('appUrl', origin);
-  const app = createApp({ store, origin, setupToken, logo: await loadLogo(), extraOrigins: process.env.FR_EXTRA_ORIGINS || '', trustProxy: process.env.FR_TRUST_PROXY === '1' });
+  const app = createApp({ store, origin, setupToken, logo: await loadLogo(), extraOrigins: process.env.FR_EXTRA_ORIGINS || '', trustProxy: process.env.FR_TRUST_PROXY === '1', proxies: process.env.FR_TRUSTED_PROXIES || '' });
   app.requestTimeout = 20000; app.headersTimeout = 10000;
   app.listen(port, host, () => {
     console.log(`${store.config().companyName || DEFAULT_CONFIG.companyName} - Financial Monitoring is running at ${origin}`);

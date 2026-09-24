@@ -39,6 +39,10 @@ USER node
 
 EXPOSE 3403
 
+# Healthy once the service answers. docker compose holds Caddy back until then.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:' + (process.env.FR_PORT || process.env.PORT || 3403) + '/').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+
 # The platform terminates TLS and forwards; the process itself only ever speaks HTTP.
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["node", "src/server.mjs"]

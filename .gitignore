@@ -5,6 +5,9 @@ data/
 *.sqlite-shm
 *.sqlite-wal
 
+# The off-volume copies docker-compose.yml writes on the server.
+backups/
+
 # Dependencies, restored with `npm install`.
 node_modules/
 

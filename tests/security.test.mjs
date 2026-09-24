@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Store } from '../src/store.mjs';
 import { addUser, login, checkLimit } from '../src/auth.mjs';
-import { clientAddress } from '../src/server.mjs';
+import { clientAddress, trustedProxies } from '../src/server.mjs';
 
 // Properties that must not quietly regress. Each of these was a real finding.
 
@@ -67,6 +67,22 @@ test('a forwarded address is believed only when the proxy is this machine', () =
 
   // And with trust switched off, nothing is taken from a header at all.
   assert.equal(clientAddress(request('127.0.0.1', { 'cf-connecting-ip': '9.9.9.9' }), false), '127.0.0.1');
+});
+
+test('in a container, the proxy is believed by its own address and nothing else is', () => {
+  const request = (peer, headers) => ({ socket: { remoteAddress: peer }, headers });
+  const trusted = trustedProxies('172.28.0.2');
+
+  // Caddy in its own container, as IPv4 or as Node reports it on a dual-stack socket.
+  assert.equal(clientAddress(request('172.28.0.2', { 'x-forwarded-for': '9.9.9.9' }), true, trusted), '9.9.9.9');
+  assert.equal(clientAddress(request('::ffff:172.28.0.2', { 'x-forwarded-for': '9.9.9.9' }), true, trusted), '9.9.9.9');
+  // Loopback is still trusted, so an office install behaves exactly as before.
+  assert.equal(clientAddress(request('127.0.0.1', { 'x-forwarded-for': '9.9.9.9' }), true, trusted), '9.9.9.9');
+  // A neighbour on the same Docker network is not the proxy, and its header is a forgery.
+  assert.equal(clientAddress(request('172.28.0.3', { 'x-forwarded-for': '9.9.9.9' }), true, trusted), '172.28.0.3');
+
+  assert.throws(() => trustedProxies('172.28.0.0/16'), /must be IP addresses/);
+  assert.throws(() => trustedProxies('caddy'), /must be IP addresses/);
 });
 
 test('an absurd forwarded value cannot be used to bloat the limits table', () => {

@@ -1,0 +1,19 @@
+# The HTTPS front door for docker-compose.yml. DOMAIN and ACME_EMAIL come from .env.
+#
+# Caddy obtains a Let's Encrypt certificate for DOMAIN on first start and renews it by itself.
+# That needs DOMAIN's DNS pointed at this server and ports 80 and 443 open to the internet.
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	reverse_proxy app:3403 {
+		# Caddy sets X-Forwarded-For to the real visitor itself. A CF-Connecting-IP header can
+		# only have been typed by the visitor, since no Cloudflare is in front, so it is removed
+		# rather than passed on for the app to believe.
+		header_up -CF-Connecting-IP
+	}
+}

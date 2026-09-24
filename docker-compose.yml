@@ -1,0 +1,76 @@
+# Financial Monitoring on your own server, under your own domain.
+#
+#   cp .env.example .env      then set DOMAIN and ACME_EMAIL in it
+#   docker compose up -d --build
+#
+# Two containers. Caddy is the only one reachable from outside: it answers on 80 and 443,
+# obtains and renews the HTTPS certificate for DOMAIN by itself, and forwards to the app.
+# The app is never published on a host port, so it cannot be reached around the proxy.
+
+name: blackstone
+
+services:
+  app:
+    build: .
+    image: blackstone:latest
+    container_name: blackstone
+    restart: unless-stopped
+    environment:
+      FR_ORIGIN: https://${DOMAIN:?Set DOMAIN in .env}
+      # Caddy's fixed address below. The app believes a forwarded client address only from
+      # this one container, which is what keeps each visitor's login limit their own.
+      FR_TRUSTED_PROXIES: 172.28.0.2
+      FR_SETUP_TOKEN: ${FR_SETUP_TOKEN:-}
+      FR_KEEP_BACKUPS: ${FR_KEEP_BACKUPS:-240}
+      # Each verified backup is also copied out of the volume, into ./backups on the host,
+      # so the server's own backup routine can pick it up.
+      FR_BACKUP_COPY_TO: /backups
+      FR_MAIL_FROM: ${FR_MAIL_FROM:-}
+      FR_SMTP_HOST: ${FR_SMTP_HOST:-}
+      FR_SMTP_PORT: ${FR_SMTP_PORT:-587}
+      FR_SMTP_USER: ${FR_SMTP_USER:-}
+      FR_SMTP_PASS: ${FR_SMTP_PASS:-}
+      FR_SMTP_SECURE: ${FR_SMTP_SECURE:-}
+      FR_SMTP_URL: ${FR_SMTP_URL:-}
+    volumes:
+      - data:/data                # the database and its hourly backups; never delete this volume
+      - ./backups:/backups        # second copy of every backup, outside the volume
+    networks:
+      blackstone:
+        ipv4_address: 172.28.0.3
+
+  caddy:
+    image: caddy:2
+    container_name: blackstone-caddy
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"                   # needed for the certificate challenge and the redirect to https
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env}
+    volumes:
+      - ./deploy/Caddyfile.docker:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data          # the certificates; keeping them avoids re-issuing on restart
+      - caddy-config:/config
+    networks:
+      blackstone:
+        ipv4_address: 172.28.0.2
+
+networks:
+  blackstone:
+    name: blackstone
+    ipam:
+      config:
+        # Change this (and the two addresses above, and FR_TRUSTED_PROXIES) only if it clashes
+        # with a network the server already uses.
+        - subnet: 172.28.0.0/24
+
+volumes:
+  data:
+  caddy-data:
+  caddy-config:

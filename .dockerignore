@@ -14,3 +14,7 @@ deploy/
 *.csv
 README.md
 DEPLOY.md
+.env
+.env.*
+backups/
+docker-compose.yml

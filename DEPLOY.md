@@ -200,6 +200,66 @@ Your financial records would then live on that provider's servers rather than in
 That may be entirely acceptable - it is worth deciding deliberately rather than discovering it
 later.
 
+## 4c. On your own Linux server, under your own domain (Docker Compose)
+
+`docker-compose.yml` runs two containers: the application, and Caddy in front of it. Caddy is
+the only thing reachable from outside. It gets the HTTPS certificate for your domain from
+Let's Encrypt on first start and renews it by itself. The application is never published on
+a host port, so nothing can reach it around the proxy.
+
+**Before you start**
+
+- An `A` record for your chosen name (say `finance.yourcompany.com`) pointing at the server.
+- Ports **80 and 443** open to the internet on the server's firewall. Let's Encrypt checks
+  port 80 to prove the domain is yours, even though everyone uses 443 afterwards.
+- If the server is reachable only inside your network, Let's Encrypt cannot reach it. Say so
+  and the Caddyfile can use your own certificate instead.
+
+**First start**
+
+```bash
+git clone <this repository> blackstone && cd blackstone
+cp .env.example .env            # set DOMAIN and ACME_EMAIL, and the mail settings if you have them
+mkdir -p backups && sudo chown 1000:1000 backups   # the app runs as uid 1000 and writes here
+docker compose up -d --build
+docker compose logs app         # prints the one-time setup code
+```
+
+Open `https://<DOMAIN>`, enter the code, and create the administrator. Then carry on with
+section 2's list and section 7.
+
+**Where the data is**
+
+| What | Where |
+| --- | --- |
+| The database | the `blackstone_data` Docker volume, mounted at `/data` in the `blackstone` container |
+| Hourly verified backups | inside that volume, `/data/backups`, the last 240 kept |
+| A second copy of each backup | `./backups` on the host, next to `docker-compose.yml` |
+
+`./backups` is plain files on the host, so include it in whatever backs the server up. The
+copies inside the volume do not survive losing the volume.
+
+**Never run `docker compose down -v`.** The `-v` deletes the volumes, and with them the
+database. `docker compose down` on its own is safe.
+
+**Day to day**
+
+| Task | Command |
+| --- | --- |
+| Status | `docker compose ps` (the app shows `healthy`) |
+| Logs | `docker compose logs -f app` |
+| Update to a new version | `git pull && docker compose up -d --build` |
+| Back up now | `docker compose exec app node scripts/backup.mjs` |
+| See what the backups hold | `docker compose stop app && docker compose run --rm --no-deps app node scripts/restore.mjs` |
+| Put a backup back | `docker compose run --rm --no-deps app node scripts/restore.mjs <file> --confirm && docker compose start app` |
+
+**Why Caddy has a fixed address.** The login limits count attempts per visitor. Behind a
+proxy every connection comes from the proxy, so the app reads the visitor's real address from
+the header Caddy adds, but only when the connection comes from `172.28.0.2`, Caddy's fixed
+address, named in `FR_TRUSTED_PROXIES`. Anything else on the network sending that header is
+ignored. If `172.28.0.0/24` clashes with a network your server already uses, change the subnet
+and all three addresses in `docker-compose.yml` together.
+
 ## 5. Email, so password resets can be sent
 
 Until this is done the system does not pretend to send anything: it shows an administrator the
