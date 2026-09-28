@@ -35,7 +35,10 @@ try {
 }
 await mkdir(backupDirectory, { recursive: true });
 
-const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 16);
+// To the second, not the minute: two backups a few seconds apart - a restart, or somebody
+// running one by hand just after the hourly - would otherwise collide, and VACUUM INTO
+// refuses to write over an existing file.
+const stamp = new Date().toISOString().replace(/[:T]/g, '-').replace(/\..+$/, '');
 const target = path.join(backupDirectory, `finance-${stamp}.sqlite`);
 
 const live = new DatabaseSync(source, { readOnly: true });
